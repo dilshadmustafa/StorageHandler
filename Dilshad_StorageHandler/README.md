@@ -4,7 +4,9 @@ StorageHandler
 Introduction
 -------------
 
-StorageHandler (IStorageHandler.java) is the interface to a Storage system to access the data stored in the storage system, copy Object/file data between local filesystem and Storage system, check if Object/file exists, delete Object/file if exists, etc. Storage system can be any distributed storage system, Object storage system (HTTP, REST, S3-interface), distributed filesystem, NFS, FUSE, etc. StorageHandler can be implemented for Storage system of your choice: Scality, RedHat CephFS, OpenIO, OrangeFS, RedHat Gluster, SeaweedFS, Minio, IBM Cleversafe, etc.
+StorageHandler (IStorageHandler.java) is the interface to a Storage system to access the data stored in the storage system, copy Object/file data between local filesystem and Storage system, check if Object/file exists, delete Object/file if exists, etc. 
+
+Storage system can be any distributed storage system, Object storage system (HTTP, REST, S3-interface), distributed filesystem, NFS, FUSE, etc. StorageHandler can be implemented for Storage system of your choice: Scality, RedHat CephFS, OpenIO, OrangeFS, RedHat Gluster, SeaweedFS, Minio, IBM Cleversafe, etc.
 
 Copyright
 -------------------
