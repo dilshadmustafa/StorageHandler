@@ -1,6 +1,6 @@
 /**
  * @author Dilshad Mustafa
- * Copyright (c) Dilshad Mustafa
+ * Copyright (c) Dilshad Mustafa 2016
  * Created 19-Oct-2016
  * File Name : IStorageHandler.java
  * 
@@ -14,6 +14,26 @@ package com.dilmus.dilshad.storage;
  * @author Dilshad Mustafa
  *
  */
+
+/*
+ * Copyright (c) Dilshad Mustafa 2016
+ * 
+ * StorageHandler (IStorageHandler.java) is the interface to a Storage system to access the data stored in the 
+ * storage system, copy Object/file data between local filesystem and Storage system, check if Object/file exists, 
+ * delete Object/file if exists, etc.
+ * 
+ * Storage system can be any distributed storage system, Object storage system (HTTP, REST, S3-interface), 
+ * distributed filesystem, NFS, FUSE, etc. StorageHandler can be implemented for Storage system of your 
+ * choice: Scality, RedHat CephFS, OpenIO, OrangeFS, RedHat Gluster, SeaweedFS, Minio, IBM Cleversafe, etc.
+ * 
+ * IStorageHandler.java interface provides a single view of the Storage provider but this interface's actual 
+ * implementation class may actually use multiple Storage systems of same or different types. For example multiple 
+ * S3-interface Storage systems or a mix of multiple different types of Storage systems each accessed through 
+ * different ways (S3, HTTP, REST, APIs) may be used by the actual implementation class of IStorageHandler.java 
+ * interface.
+ * 
+ */
+
 public interface IStorageHandler {
 
 	/* 
@@ -24,14 +44,14 @@ public interface IStorageHandler {
 	 * Method : copyFromLocal(String storageFilePath, String localFilePath)
 	 * 
 	 * Assumptions for Storage system that support creation of directory given directory name
-	 * Parameter Name : storageFilePath
+	 * Parameter Name  : storageFilePath
 	 * Parameter Value :
-	 * 		Any standard file system path for file, example /home/<user>/testdata/storage/mydata_1/meta_data/page-0.dat
+	 * 		Any standard file system path for file, example /home/<user>/testdata/storage/mydata_1_app1/meta_data/page-0.dat
 	 * 
-	 * If the file already exist in the Storage System, don't throw exception. Refer below if file already exists.
+	 * If the file already exists in the Storage System, don't throw exception. Refer below if the file already exists in the Storage System.
 	 * -----------------------------------------------------------------------------------------------------------
 	 * Assumptions for Storage system that does not support creation of directory given directory name
-	 * Parameter Name : storageFilePath
+	 * Parameter Name  : storageFilePath
 	 * Parameter Value :
 	 * 		(1) <AnyDummyStringWithoutSlash>/<ArrayFolder>/<PageFolder>/<PageFileName>
 	 * 		OR
@@ -46,7 +66,7 @@ public interface IStorageHandler {
 	 * (2) File name to create = <SomeFileName> [<AnyDummyStringWithoutSlash> can also be appended if needed]
 	 * 
 	 * Note : If any other character is used in place of '_' used in file name above, then it should be 
-	 * consistently used in other methods as well.
+	 * consistently used in other methods of this interface as well.
 	 * 
 	 * Example (1) : if storageFilePath = "appid1/mydata_1_app1/meta_data/page-0.dat"
 	 * 			     then <AnyDummyStringWithoutSlash> = "appid1"
@@ -58,20 +78,51 @@ public interface IStorageHandler {
 	 * 				 and <SomeFileName> = "myfile.txt"
 	 * So File name to create = "myfile.txt" [appid1 can also be appended if needed]
 	 * 
-	 * If the file already exist in the Storage System, don't throw exception. Refer below if file already exists.
+	 * If the file already exists in the Storage System, don't throw exception. Refer below if the file already exists in the Storage System.
 	 * -----------------------------------------------------------------------------------------------------------
-	 * If the file already exists in the Storage System, handle as detailed below:-
+	 * NOTE:
+	 * 
+	 * The decision to use same Object Id or new Object Id or use filepath/filename itself as the Object Key/Object
+	 * Id (by replacing '/', '\' in filepath with '_' for example) is left to the implementor, which depends on 
+	 * underlying Storage system and fault tolerance vs consistency tradeoff for CRUD operations.
+	 *  
+	 * Expected Consistency Level for CRUD operations:-
+	 * 
+	 * The following is Expected Consistency level for CRUD operations, expected in the Storage system:
+	 *  
+	 * Create - Read-After-Write Consistency (refer Amazon AWS S3)
+	 * Read   - Eventual Consistency
+	 * Update - Eventual Consistency
+	 * Delete - Eventual Consistency
+	 *  
+	 * There are three types of files handled through the IStorageHandler interface:-
+	 * 
+	 * 1) WORM file - Write Once, Read Many file. This type of file is written only once.
+	 * 
+	 * 2) ARV file  - Any Read is Valid file. This type of file, whether with outdated/stale data, 
+	 *                or out-of-order data, is still valid data.
+	 * 
+	 * 3) ARU file  - Any Read is Useful file. This type of file is used only by the cleanup system and only in 
+	 *                worst case scenario for best effort estimation. So any data provided by this file is useful.
+	 *   
+	 * If the file already exists in the Storage System, one way to handle is as detailed below:-
 	 * 
 	 * (A) For Storage systems with S3 interface, SeaweedFS, etc.:-
 	 * 
 	 * Create a new Object/File entry. Treat this as a new Object/File upload and create a new Object Id/File Id 
-	 * entry and store filepath/filename to Object Id/File Id mapping in Cassandra. 
+	 * entry and store filepath/filename to Object Id/File Id mapping in Cassandra or any DB store. 
 	 * 
-	 * Additional fields that can be included in the mapping can be IP Address and Port Number if using multiple 
-	 * storage systems of same or different type.
+	 * NOTE: We may choose to use same Object Id or new Object Id or use filepath/filename itself as the Object 
+	 * Key/Object Id (by replacing '/', '\' in filepath with '_' for example) which depends on underlying Storage 
+	 * system and fault tolerance vs consistency tradeoff for CRUD operations. Please refer "Expected Consistency 
+	 * Level for CRUD operations" section above for details.
 	 * 
-	 * You may delete Object/File data associated with previous Object Id/File Id mapping to this filepath/filename 
-	 * and ignore any exception/error from the delete operation.
+	 * Additional fields that can be included in the mapping can be IP Address and Port Number, failover IP 
+	 * Addresses/Port Numbers and additional configuration data for e.g. bucket name, volume name, storage 
+	 * provider name if using multiple storage systems of same or different types.
+	 * 
+	 * If using new Object Id/File Id, you may delete Object/File data associated with previous Object Id/File Id 
+	 * mapping to this filepath/filename and ignore any exception/error from the delete operation.
 	 * 
 	 * (B) For file meta-data based Storage systems, Apache HDFS, etc.:-
 	 * 
@@ -113,15 +164,15 @@ public interface IStorageHandler {
 	 * Method : copyIfExistsToLocal(String storageFilePath, String localFilePath)
 	 * 
 	 * Assumptions for Storage system that support creation of directory given directory name
-	 * Parameter : storageFilePath
+	 * Parameter Name  : storageFilePath
 	 * Parameter Value :
-	 * 		Any standard file system path for file, example /home/<user>/testdata/mount_directory_storage/mydata_1/meta_data/page-0.dat
+	 * 		Any standard file system path for file, example /home/<user>/testdata/mount_directory_storage/mydata_1_app1/meta_data/page-0.dat
 	 * 
 	 * If the file doesn't exist in the Storage System, don't throw exception
 	 * -----------------------------------------------------------------------------------------------------------
 	 * Assumptions for Storage system that does not support creation of directory given directory name
-	 * Parameter : storageFilePath
-	 * Parameter Value:
+	 * Parameter Name  : storageFilePath
+	 * Parameter Value :
 	 * 		(1) <AnyDummyStringWithoutSlash>/<ArrayFolder>/<PageFolder>/<PageFileName>
 	 * 		OR
 	 * 		(2) <AnyDummyStringWithoutSlash>/<SomeFileName>
@@ -152,14 +203,14 @@ public interface IStorageHandler {
 	 * Method : deleteIfExists(String storageFilePath)
 	 * 
 	 * Assumptions for Storage system that support creation of directory given directory name
-	 * Parameter Name : storageFilePath
+	 * Parameter Name  : storageFilePath
 	 * Parameter Value :
-	 * 		Any standard file system path for file, example /home/<user>/testdata/mount_directory_storage/mydata_1/meta_data/page-0.dat
+	 * 		Any standard file system path for file, example /home/<user>/testdata/mount_directory_storage/mydata_1_app1/meta_data/page-0.dat
 	 * 
 	 * If the file doesn't exist in the Storage System, don't throw exception
 	 * -----------------------------------------------------------------------------------------------------------
 	 * Assumptions for Storage system that does not support creation of directory given directory name
-	 * Parameter Name : storageFilePath
+	 * Parameter Name  : storageFilePath
 	 * Parameter Value :
 	 * 		(1) <AnyDummyStringWithoutSlash>/<ArrayFolder>/<PageFolder>/<PageFileName>
 	 * 		OR
@@ -191,14 +242,14 @@ public interface IStorageHandler {
 	 * Method : mkdirIfAbsent(String dirPath)
 	 * 
 	 * Assumptions for Storage system that support creation of directory given directory name
-	 * Parameter Name : dirPath
+	 * Parameter Name  : dirPath
 	 * Parameter Value :
 	 * 		Any standard file system path for directory, example /home/<user>/testdata/storage
 	 * 
 	 * Create directory as per dirPath, return 0 if successful else throw exception
 	 * -----------------------------------------------------------------------------------------------------------
 	 * Assumptions for Storage system that does not support creation of directory given directory name
-	 * Parameter Name : dirPath
+	 * Parameter Name  : dirPath
 	 * Parameter Value :
 	 * 		<AnyDummyStringWithoutSlash>/<ArrayFolder>
 	 * 		
@@ -212,7 +263,7 @@ public interface IStorageHandler {
 	 * Method : deleteArrayDirIfExists(String dirPath)
 	 * 
 	 * Assumptions for Storage system that support creation of directory given directory name
-	 * Parameter Name : dirPath
+	 * Parameter Name  : dirPath
 	 * Parameter Value :
 	 * 		Any standard file system path for directory, example /home/<user>/testdata/storage
 	 * 
@@ -221,7 +272,7 @@ public interface IStorageHandler {
 	 * If the directory dirPath doesn't exist in the Storage System, don't throw exception
 	 * -----------------------------------------------------------------------------------------------------------
 	 * Assumptions for Storage system that does not support creation of directory given directory name
-	 * Parameter Name : dirPath
+	 * Parameter Name  : dirPath
 	 * Parameter Value :
 	 * 		<AnyDummyStringWithoutSlash>/<ArrayFolder>
 	 * 		
@@ -259,7 +310,7 @@ public interface IStorageHandler {
 	 * Method : deleteDirIfExists(String dirPath)
 	 * 
 	 * Assumptions for Storage system that support creation of directory given directory name
-	 * Parameter Name : dirPath
+	 * Parameter Name  : dirPath
 	 * Parameter Value :
 	 * 		Any standard file system path for directory, example /home/<user>/testdata/storage
 	 * 
@@ -268,18 +319,19 @@ public interface IStorageHandler {
 	 * If the directory dirPath doesn't exist in the Storage System, don't throw exception
 	 * -----------------------------------------------------------------------------------------------------------
 	 * Assumptions for Storage system that does not support creation of directory given directory name
-	 * Parameter Name : dirPath
+	 * Parameter Name  : dirPath
 	 * Parameter Value :
 	 * 		<AnyDummyStringWithoutSlash>/<SomeDirectoryName>
 	 * 		
 	 * 		where <AnyDummyStringWithoutSlash> = <AppId> or "" (empty string) or any dummy string without File.separator ("/" or "\")
 	 * 
-	 * Delete all the files associated with <SomeDirectoryName> for example file names starting with <SomeDirectoryName> [<AnyDummyStringWithoutSlash> can also be appended if needed]
+	 * Delete all the files associated with <SomeDirectoryName> for example file names starting with 
+	 * <SomeDirectoryName> [<AnyDummyStringWithoutSlash> can also be appended if needed]
 	 * 
 	 * If the files don't exist in the Storage System, don't throw exception
 	 * 
-	 * If this functionality is not possible in the storage system (for example listing all the files with file names starting with <SomeDirectoryName>)
-	 * then throw new Exception("Not Supported Exception");
+	 * If this functionality is not possible in the storage system (for example listing all the files with 
+	 * file names starting with <SomeDirectoryName>) then throw new Exception("Not Supported Exception");
 	 */
 	public int deleteDirIfExists(String dirPath) throws Exception;
 	
@@ -287,14 +339,14 @@ public interface IStorageHandler {
 	 * Method : isFileExists(String storageFilePath)
 	 * 
 	 * Assumptions for Storage system that support creation of directory given directory name
-	 * Parameter Name : storageFilePath
+	 * Parameter Name  : storageFilePath
 	 * Parameter Value :
 	 * 		Any standard file system path for file, example /home/<user>/testdata/mount_directory_storage/mydata_1/meta_data/page-0.dat
 	 * 
 	 * If the file doesn't exist in the Storage System, return false else return true
 	 * -----------------------------------------------------------------------------------------------------------
 	 * Assumptions for Storage system that does not support creation of directory given directory name
-	 * Parameter Name : storageFilePath
+	 * Parameter Name  : storageFilePath
 	 * Parameter Value :
 	 * 		(1) <AnyDummyStringWithoutSlash>/<ArrayFolder>/<PageFolder>/<PageFileName>
 	 * 		OR
